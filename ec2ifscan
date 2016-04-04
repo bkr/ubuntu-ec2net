@@ -1,4 +1,6 @@
-# Copyright (C) 2012 Amazon.com, Inc. or its affiliates.
+#!/bin/bash
+
+# Copyright (C) 2013 Amazon.com, Inc. or its affiliates.
 # All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License").
@@ -13,9 +15,15 @@
 # specific language governing permissions and limitations under the
 # License.
 
-ACTION=="add", SUBSYSTEM=="net", KERNEL=="eth*", IMPORT{program}="/bin/sleep 1"
-SUBSYSTEM=="net", RUN+="/etc/network/ec2net.hotplug"
-ACTION=="add", SUBSYSTEM=="net", KERNEL=="eth*", \
-  RUN+="/sbin/ifup $env{INTERFACE}"
-ACTION=="remove", SUBSYSTEM=="net", KERNEL=="eth*", \
-  RUN+="/sbin/ifdown $env{INTERFACE}"
+if [ $UID -ne 0 ]; then
+  echo "error: ${0##*/} must be run as root"
+  exit 1
+fi
+
+for dev in $(find /sys/class/net/eth*) ; do
+  cfg="/etc/network/interfaces.d/${dev##*/}.cfg"
+  state=$(cat ${dev}/operstate)
+  if [ ! -e "${cfg}" ] && [ "${state}" == "down" ] ; then
+    echo 'add' > ${dev}/uevent
+  fi
+done
